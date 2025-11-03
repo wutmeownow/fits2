@@ -5,6 +5,8 @@
 #include <cmath>
 #include "TMath.h"
 #include "TROOT.h"
+#include "TGraph.h"
+#include "TText.h"
 
 // large gaussian with a constant background and a small gaussian dip
 Double_t myfunction2(Double_t *xin, Double_t *par) {
@@ -36,13 +38,20 @@ Double_t myfunction(Double_t *xin, Double_t *par) {
 }
 
 
+
+
 void User_fit1(int entries=100000) {
 
      auto *f=new TFile("datadist.root");
      auto h = (TH1F*) f->Get("h");
-     TCanvas *tc1 = new TCanvas("tc1","",800,600);
-     tc1->Divide(1,1);
-     h->Draw();
+     TCanvas *tc1 = new TCanvas("tc1","",1200,600);
+     tc1->Divide(3,1);
+     tc1->cd(1);
+
+     // define graph and histo for residuals
+     TGraph *gresiduals = new TGraph();
+     gresiduals->SetTitle("residuals;;");
+     TH1F *hresiduals = new TH1F("hresiduals", "Pull Distribution", 15, -4, 4);
 
      /////////////////////////////////////////////////////
      // Here we simulate some physics process
@@ -51,9 +60,9 @@ void User_fit1(int entries=100000) {
      TF1 *f1 = new TF1("f1",myfunction,0,12,7);
      
      // set the parameter values before fitting
-     f1->SetParameters(30,50,8,3);
+     f1->SetParameters(30,50,8,3); // initial pars for constant bkg + gaussian
      // f1->SetParameters(30,50,8,3,-10,6.5,0.2);
-     f1->Draw("same");
+     // f1->Draw("same");
 
      // perform the fit here
      // h->Fit("f1");
@@ -62,12 +71,27 @@ void User_fit1(int entries=100000) {
      // retrieve central parameter values and errors
      TF1 *myfunc = h->GetFunction("f1");
      // myfunc->Print();
-     myfunc->Draw("same");
+     
      cout << "fit parameters" << endl;
      for (int i=0;i<4;i++) {
      cout << i << "\t" << myfunc->GetParameter(i) 
           << " +- " << myfunc->GetParError(i) << endl;
      }
+
+     
+     // Loop over **all** visible bins and calculate residuals
+     for (int i = 1; i <= h->GetNbinsX(); ++i) {
+          double binCenter = h->GetBinCenter(i);
+          double content   = h->GetBinContent(i);
+          double error     = h->GetBinError(i);
+          double_t residual = (myfunc->Eval(binCenter)-content)/error;
+          gresiduals->SetPoint(i-1, binCenter, residual); // add residual to g
+          hresiduals->Fill(residual);
+     }
+
+     // fit pull distribution with gaussian
+     hresiduals->Fit("gaus","Q");
+     TF1 *resfitfunc = hresiduals->GetFunction("gaus");
 
 
      // get chi^2 pvalue
@@ -77,12 +101,33 @@ void User_fit1(int entries=100000) {
      cout << " Pvalue: " 
           << TMath::Prob(chi2,myfunc->GetNDF()) << endl;
 
+
+     // plot
+     TText text; // text for graphs
+     text.SetTextSize(0.03);
+     text.SetTextColor(kRed);
+
+     h->Draw();
+     myfunc->Draw("same");
+
+     tc1->cd(2);
+     gresiduals->Draw("AL");
+
+     tc1->cd(3);
+     hresiduals->Draw();
+     resfitfunc->Draw("same");
+     text.DrawTextNDC(0.15, 0.6, Form("mean = %.2f",resfitfunc->GetParameter(1)));
+     text.DrawTextNDC(0.15, 0.55, Form("sigma = %.2f",resfitfunc->GetParameter(2)));
+ 
+
      tc1->Update();
      tc1->SaveAs("result.pdf");
 
-     // delete h;
+     // delete gresiduals;
+     // delete hresiduals;
      // delete tc1;
      // delete f1;
      // delete myfunc;
+     // delete resfitfunc;
 }
 
