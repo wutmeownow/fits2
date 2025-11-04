@@ -38,6 +38,20 @@ Double_t myfunction(Double_t *xin, Double_t *par) {
 }
 
 
+// large gaussian with a linear background
+Double_t myfunction3(Double_t *xin, Double_t *par) {
+  Double_t x=xin[0];
+  Double_t background = par[0];
+  Double_t slope = par[1];
+  // overall gaussian
+  Double_t A=par[2];
+  Double_t mu=par[3];
+  Double_t sig=par[4];
+  Double_t peak=A*TMath::Exp(-0.5*(x-mu)*(x-mu)/sig/sig);
+  return background+peak+slope*x;
+}
+
+
 
 
 void User_fit1(int entries=100000) {
@@ -57,23 +71,28 @@ void User_fit1(int entries=100000) {
      // Here we simulate some physics process
      /////////////////////////////////////////////////////
      // define a TF1 using 4 parameters
-     TF1 *f1 = new TF1("f1",myfunction,0,12,7);
+     // int Npar = 4;
+     // TF1 *f1 = new TF1("f1",myfunction,0,12,4);
+     // 5 param fit
+     int Npar = 5;
+     TF1 *f1 = new TF1("f1",myfunction3,0,12,Npar);
      
      // set the parameter values before fitting
-     f1->SetParameters(30,50,8,3); // initial pars for constant bkg + gaussian
+     // f1->SetParameters(30,50,8,3); // initial pars for constant bkg + gaussian
+     f1->SetParameters(30,1,50,8,3); // initial pars for linear bkg + gaussian
      // f1->SetParameters(30,50,8,3,-10,6.5,0.2);
      // f1->Draw("same");
 
      // perform the fit here
-     // h->Fit("f1");
-     h->Fit("f1","EV");
+     h->Fit("f1");
+     // h->Fit("f1","EV");
 
      // retrieve central parameter values and errors
      TF1 *myfunc = h->GetFunction("f1");
      // myfunc->Print();
      
      cout << "fit parameters" << endl;
-     for (int i=0;i<4;i++) {
+     for (int i=0;i<Npar;i++) {
      cout << i << "\t" << myfunc->GetParameter(i) 
           << " +- " << myfunc->GetParError(i) << endl;
      }
@@ -121,7 +140,7 @@ void User_fit1(int entries=100000) {
  
 
      tc1->Update();
-     tc1->SaveAs("result.pdf");
+     tc1->SaveAs("result2.pdf");
 
      // delete gresiduals;
      // delete hresiduals;
